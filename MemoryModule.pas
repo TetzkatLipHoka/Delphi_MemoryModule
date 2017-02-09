@@ -1,12 +1,3 @@
-// To compile under FPC, Delphi mode must be used
-// Also define CPUX64 for simplicity
-{$IFDEF FPC}
-  {$mode delphi}
-  {$IFDEF CPU64}
-    {$DEFINE CPUX64}
-  {$ENDIF}
-{$ENDIF}
-
 unit MemoryModule;
 
 { * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -52,6 +43,25 @@ unit MemoryModule;
   *   Tested under RAD Studio XE2 and XE6 32/64-bit, Lazarus 32-bit
   * }
 
+// To compile under FPC, Delphi mode must be used
+// Also define CPUX64 for simplicity
+{$IFDEF FPC}
+  {$mode delphi}
+  {$IFDEF CPU64}
+    {$DEFINE CPUX64}
+  {$ENDIF}
+{$ENDIF}
+{$WARN UNSAFE_TYPE OFF}
+{$WARN UNSAFE_CODE OFF}
+
+{$IFNDEF FPC}
+{$IF CompilerVersion >= 23}
+  {$LEGACYIFEND ON}
+{$ELSE}
+  {$RANGECHECKS OFF} // RangeCheck might cause Internal-Error C1118
+{$IFEND}
+{$ENDIF}
+
 interface
 
 uses
@@ -76,8 +86,10 @@ implementation
   { ++++++++++++++++++++++++++++++++++++++++
     ***  Missing Windows API Definitions ***
     ---------------------------------------- }
+type
+   _Pointer = Pointer; // Dummy
+       
   {$IF NOT DECLARED(IMAGE_BASE_RELOCATION)}
-  type
   {$ALIGN 4}
   IMAGE_BASE_RELOCATION = record
     VirtualAddress: DWORD;
@@ -88,29 +100,115 @@ implementation
   {$IFEND}
 
   // Types that are declared in Pascal-style (ex.: PImageOptionalHeader); redeclaring them in C-style
-
   {$IF NOT DECLARED(PIMAGE_DATA_DIRECTORY)}
-  type PIMAGE_DATA_DIRECTORY = ^IMAGE_DATA_DIRECTORY;
+  PIMAGE_DATA_DIRECTORY = ^IMAGE_DATA_DIRECTORY;
   {$IFEND}
 
   {$IF NOT DECLARED(PIMAGE_SECTION_HEADER)}
-  type PIMAGE_SECTION_HEADER = ^IMAGE_SECTION_HEADER;
+  PIMAGE_SECTION_HEADER = ^IMAGE_SECTION_HEADER;
   {$IFEND}
 
   {$IF NOT DECLARED(PIMAGE_EXPORT_DIRECTORY)}
-  type PIMAGE_EXPORT_DIRECTORY = ^IMAGE_EXPORT_DIRECTORY;
+  PIMAGE_EXPORT_DIRECTORY = ^IMAGE_EXPORT_DIRECTORY;
   {$IFEND}
 
   {$IF NOT DECLARED(PIMAGE_DOS_HEADER)}
-  type PIMAGE_DOS_HEADER = ^IMAGE_DOS_HEADER;
+  PIMAGE_DOS_HEADER = ^IMAGE_DOS_HEADER;
   {$IFEND}
 
   {$IF NOT DECLARED(PIMAGE_NT_HEADERS)}
-  type PIMAGE_NT_HEADERS = ^IMAGE_NT_HEADERS;
+  PIMAGE_NT_HEADERS = ^IMAGE_NT_HEADERS;
   {$IFEND}
 
   {$IF NOT DECLARED(PUINT_PTR)}
-  type PUINT_PTR = ^UINT_PTR;
+  PUINT_PTR = ^UINT_PTR;
+  {$IFEND}
+
+  // D7
+  {$IF NOT DECLARED(UIntPtr)}
+  UIntPtr = Cardinal;
+  {$IFEND}
+
+  {$IF NOT DECLARED(UINT16)}
+  UINT16 = Word;
+  {$IFEND}
+
+  {$IF NOT DECLARED(_IMAGE_TLS_DIRECTORY32)}
+  _IMAGE_TLS_DIRECTORY32 = record
+    StartAddressOfRawData: DWORD;
+    EndAddressOfRawData: DWORD;
+    AddressOfIndex: DWORD;             // PDWORD
+    AddressOfCallBacks: DWORD;         // PIMAGE_TLS_CALLBACK *
+    SizeOfZeroFill: DWORD;
+    Characteristics: DWORD;
+  end;
+  {$IFEND}
+
+  {$IF NOT DECLARED(PIMAGE_TLS_DIRECTORY32)}
+  PIMAGE_TLS_DIRECTORY32 = ^_IMAGE_TLS_DIRECTORY32;
+  {$IFEND}
+
+  {$IF NOT DECLARED(PIMAGE_TLS_DIRECTORY)}
+  PIMAGE_TLS_DIRECTORY = PIMAGE_TLS_DIRECTORY32;
+  {$IFEND}
+
+  {$IF NOT DECLARED(PIMAGE_TLS_CALLBACK)}
+  PIMAGE_TLS_CALLBACK = procedure (DllHandle: Pointer; Reason: DWORD; Reserved: Pointer) stdcall;
+  {$IFEND}
+
+  {$IF NOT DECLARED(_IMAGE_IMPORT_DESCRIPTOR)}
+  _IMAGE_IMPORT_DESCRIPTOR = record
+    case Byte of
+      0: (Characteristics: DWORD);          // 0 for terminating null import descriptor
+      1: (OriginalFirstThunk: DWORD;        // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
+          TimeDateStamp: DWORD;             // 0 if not bound,
+                                            // -1 if bound, and real date\time stamp
+                                            //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
+                                            // O.W. date/time stamp of DLL bound to (Old BIND)
+
+          ForwarderChain: DWORD;            // -1 if no forwarders
+          Name: DWORD;
+          FirstThunk: DWORD);                // RVA to IAT (if bound this IAT has actual addresses)
+  end;
+  {$IFEND}
+
+  {$IF NOT DECLARED(PIMAGE_IMPORT_DESCRIPTOR)}
+  PIMAGE_IMPORT_DESCRIPTOR = ^_IMAGE_IMPORT_DESCRIPTOR;
+  {$IFEND}
+
+  {$IF NOT DECLARED(_IMAGE_IMPORT_BY_NAME)}
+  _IMAGE_IMPORT_BY_NAME = record
+    Hint: Word;
+    Name: array[0..0] of Byte;
+  end;
+  {$IFEND}
+
+  {$IF NOT DECLARED(PIMAGE_IMPORT_BY_NAME)}
+  PIMAGE_IMPORT_BY_NAME = ^_IMAGE_IMPORT_BY_NAME;
+  {$IFEND}
+
+  {$IF NOT DECLARED(_IMAGE_IMPORT_DESCRIPTOR)}
+  _IMAGE_IMPORT_DESCRIPTOR = record
+    case Byte of
+      0: (Characteristics: DWORD);          // 0 for terminating null import descriptor
+      1: (OriginalFirstThunk: DWORD;        // RVA to original unbound IAT (PIMAGE_THUNK_DATA)
+          TimeDateStamp: DWORD;             // 0 if not bound,
+                                            // -1 if bound, and real date\time stamp
+                                            //     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)
+                                            // O.W. date/time stamp of DLL bound to (Old BIND)
+
+          ForwarderChain: DWORD;            // -1 if no forwarders
+          Name: DWORD;
+          FirstThunk: DWORD);                // RVA to IAT (if bound this IAT has actual addresses)
+  end;
+  {$IFEND}
+
+  {$IF NOT DECLARED(IMAGE_IMPORT_DESCRIPTOR)}
+  IMAGE_IMPORT_DESCRIPTOR = _IMAGE_IMPORT_DESCRIPTOR;
+  {$IFEND}
+
+  {$IF NOT DECLARED(LPSYSTEM_INFO)}
+  LPSYSTEM_INFO = ^SYSTEM_INFO;
   {$IFEND}
 
 // Missing constants
@@ -119,6 +217,12 @@ const
   IMAGE_REL_BASED_ABSOLUTE = 0;
   IMAGE_REL_BASED_HIGHLOW = 3;
   IMAGE_REL_BASED_DIR64 = 10;
+{$IF NOT Defined( FPC ) AND ( CompilerVersion < 23 )}
+  IMAGE_ORDINAL_FLAG64 = UInt64($8000000000000000);
+  IMAGE_ORDINAL_FLAG32 = LongWord($80000000);
+  IMAGE_ORDINAL_FLAG = IMAGE_ORDINAL_FLAG32;
+  HEAP_ZERO_MEMORY   = $00000008;
+{$IFEND}
 
 // Things that are incorrectly defined at least up to XE6 (miss x64 mapping)
 {$IFDEF CPUX64}
@@ -158,6 +262,10 @@ function GetProcAddress_Internal(hModule: HMODULE; lpProcName: LPCSTR): FARPROC;
 function LoadLibraryA_Internal(lpLibFileName: LPCSTR): HMODULE; stdcall; external kernel32 name 'LoadLibraryA';
 function FreeLibrary_Internal(hLibModule: HMODULE): BOOL; stdcall; external kernel32 name 'FreeLibrary';
 
+{$IF NOT Defined( FPC ) AND ( CompilerVersion < 23 )}
+procedure GetNativeSystemInfo(lpSystemInfo: LPSYSTEM_INFO); stdcall; external kernel32 name 'GetNativeSystemInfo';
+{$IFEND}
+
 // Just an imitation to allow using try-except block. DO NOT try to handle this
 // like "on E do ..." !
 procedure Abort;
@@ -173,12 +281,19 @@ begin
   P1 := Str1;
   P2 := Str2;
   while True do
-  begin
+    begin
     if (P1^ <> P2^) or (P1^ = #0) then
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
       Exit(Ord(P1^) - Ord(P2^));
+      {$ELSE}
+      begin
+      result := Ord(P1^) - Ord(P2^);
+      Exit;
+      end;
+      {$IFEND}
     Inc(P1);
     Inc(P2);
-  end;
+    end;
 end;
 
   { +++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -188,7 +303,7 @@ end;
 {$IF NOT DECLARED(IMAGE_ORDINAL)}
 //  #define IMAGE_ORDINAL64(Ordinal) (Ordinal & 0xffff)
 //  #define IMAGE_ORDINAL32(Ordinal) (Ordinal & 0xffff)
-function IMAGE_ORDINAL(Ordinal: NativeUInt): Word; inline;
+function IMAGE_ORDINAL(Ordinal: NativeUInt): Word; {$IF Defined( FPC ) OR ( CompilerVersion >= 22 )}inline;{$IFEND}
 begin
   Result := Ordinal and $FFFF;
 end;
@@ -197,7 +312,7 @@ end;
 {$IF NOT DECLARED(IMAGE_SNAP_BY_ORDINAL)}
 //  IMAGE_SNAP_BY_ORDINAL64(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG64) != 0)
 //  IMAGE_SNAP_BY_ORDINAL32(Ordinal) ((Ordinal & IMAGE_ORDINAL_FLAG32) != 0)
-function IMAGE_SNAP_BY_ORDINAL(Ordinal: NativeUInt): Boolean; inline;
+function IMAGE_SNAP_BY_ORDINAL(Ordinal: NativeUInt): Boolean; {$IF Defined( FPC ) OR ( CompilerVersion >= 22 )}inline;{$IFEND}
 begin
   Result := ((Ordinal and IMAGE_ORDINAL_FLAG) <> 0);
 end;
@@ -217,6 +332,17 @@ begin
   Result := Pointer(UIntPtr(address) and not (alignment - 1));
 end;
 
+{$IF NOT DECLARED(IMAGE_FIRST_SECTION)}
+function IMAGE_FIRST_SECTION( NtHeader: PIMAGE_NT_HEADERS ): PImageSectionHeader;
+var
+  OptionalHeaderAddr: PByte;
+begin
+  OptionalHeaderAddr := @NtHeader^.OptionalHeader;
+  Inc(OptionalHeaderAddr, NtHeader^.FileHeader.SizeOfOptionalHeader);
+  Result := PImageSectionHeader(OptionalHeaderAddr);
+end;
+{$IFEND}
+
 function CopySections(data: Pointer; old_headers: PIMAGE_NT_HEADERS; module: PMemoryModule): Boolean;
 var
   i, size: Integer;
@@ -225,48 +351,86 @@ var
   section: PIMAGE_SECTION_HEADER;
 begin
   codebase := module.codeBase;
+  {$IF NOT Defined( FPC ) AND ( CompilerVersion < 23 )}
+  section := PIMAGE_SECTION_HEADER(IMAGE_FIRST_SECTION(module.headers));
+  {$ELSE}
   section := PIMAGE_SECTION_HEADER(IMAGE_FIRST_SECTION(module.headers{$IFNDEF FPC}^{$ENDIF}));
+  {$IFEND}
   for i := 0 to module.headers.FileHeader.NumberOfSections - 1 do
-  begin
+    begin
     // section doesn't contain data in the dll itself, but may define
     // uninitialized data
     if section.SizeOfRawData = 0 then
-    begin
+      begin
       size := old_headers.OptionalHeader.SectionAlignment;
       if size > 0 then
-      begin
-        dest := VirtualAlloc(PByte(codebase) + section.VirtualAddress,
+        begin
+        dest := VirtualAlloc(
+                             {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+                             PByte(codebase) + section.VirtualAddress,
+                             {$ELSE}
+                             PAnsiChar(codebase) + section.VirtualAddress,
+                             {$IFEND}
                              size,
                              MEM_COMMIT,
                              PAGE_READWRITE);
         if dest = nil then
-          Exit(False);
+          {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+          Exit(false);
+          {$ELSE}
+          begin
+          result := false;
+          Exit;
+          end;
+          {$IFEND}
+
         // Always use position from file to support alignments smaller
         // than page size.
+        {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
         dest := PByte(codebase) + section.VirtualAddress;
+        {$ELSE}
+        dest := PAnsiChar(codebase) + section.VirtualAddress;
+        {$IFEND}
         section.Misc.PhysicalAddress := DWORD(dest);
         ZeroMemory(dest, size);
-      end;
+        end;
       // section is empty
       Inc(section);
       Continue;
-    end; // if
+      end; // if
 
     // commit memory block and copy data from dll
-    dest := VirtualAlloc(PByte(codebase) + section.VirtualAddress,
+    dest := VirtualAlloc(
+                         {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+                         PByte(codebase) + section.VirtualAddress,
+                         {$ELSE}
+                         PAnsiChar(codebase) + section.VirtualAddress,
+                         {$IFEND}
                          section.SizeOfRawData,
                          MEM_COMMIT,
                          PAGE_READWRITE);
     if dest = nil then
-      Exit(False);
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+      Exit(false);
+      {$ELSE}
+      begin
+      result := false;
+      Exit;
+      end;
+      {$IFEND}
 
     // Always use position from file to support alignments smaller
     // than page size.
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     dest := PByte(codebase) + section.VirtualAddress;
     CopyMemory(dest, PByte(data) + section.PointerToRawData, section.SizeOfRawData);
+    {$ELSE}
+    dest := PAnsiChar(codebase) + section.VirtualAddress;
+    CopyMemory(dest, PAnsiChar(data) + section.PointerToRawData, section.SizeOfRawData);
+    {$IFEND}
     section.Misc.PhysicalAddress := DWORD(dest);
     Inc(section);
-  end; // for
+    end; // for
 
   Result := True;
 end;
@@ -303,10 +467,17 @@ var
   executable, readable, writeable: Boolean;
 begin
   if sectionData.size = 0 then
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     Exit(True);
+    {$ELSE}
+    begin
+    result := True;
+    Exit;
+    end;
+    {$IFEND}
 
   if (sectionData.characteristics and IMAGE_SCN_MEM_DISCARDABLE) <> 0 then
-  begin
+    begin
     // section is not needed any more and can safely be freed
     if (sectionData.address = sectionData.alignedAddress) and
        ( sectionData.last or
@@ -315,8 +486,13 @@ begin
        ) then
          // Only allowed to decommit whole pages
          VirtualFree(sectionData.address, sectionData.size, MEM_DECOMMIT);
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     Exit(True);
-  end;
+    {$ELSE}
+    result := True;
+    Exit;
+    {$IFEND}
+    end;
 
   // determine protection flags based on characteristics
   executable := (sectionData.characteristics and IMAGE_SCN_MEM_EXECUTE) <> 0;
@@ -339,7 +515,11 @@ var
   sectionAddress, alignedAddress: Pointer;
   sectionSize: DWORD;
 begin
+  {$IF CompilerVersion < 23}
+  section := PIMAGE_SECTION_HEADER(IMAGE_FIRST_SECTION(module.headers));
+  {$ELSE}
   section := PIMAGE_SECTION_HEADER(IMAGE_FIRST_SECTION(module.headers{$IFNDEF FPC}^{$ENDIF}));
+  {$IFEND}
   {$IFDEF CPUX64}
   imageOffset := (NativeUInt(module.codeBase) and $ffffffff00000000);
   {$ELSE}
@@ -356,7 +536,7 @@ begin
   // loop through all sections and change access flags
 
   for i := 1 to module.headers.FileHeader.NumberOfSections - 1 do
-  begin
+    begin
     sectionAddress := Pointer(UIntPtr(section.Misc.PhysicalAddress) or imageOffset);
     alignedAddress := ALIGN_DOWN(sectionData.address, module.pageSize);
     sectionSize := GetRealSectionSize(module, section);
@@ -364,21 +544,38 @@ begin
     // TODO(fancycode): We currently share flags of a trailing large section
     //   with the page of a first small section. This should be optimized.
     if (sectionData.alignedAddress = alignedAddress) or
+        {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
        (PByte(sectionData.address) + sectionData.size > PByte(alignedAddress)) then
-    begin
+        {$ELSE}
+       (PAnsiChar(sectionData.address) + sectionData.size > PAnsiChar(alignedAddress)) then
+        {$IFEND}
+      begin
       // Section shares page with previous
       if (section.Characteristics and IMAGE_SCN_MEM_DISCARDABLE = 0) or
          (sectionData.Characteristics and IMAGE_SCN_MEM_DISCARDABLE = 0) then
         sectionData.characteristics := (sectionData.characteristics or section.Characteristics) and not IMAGE_SCN_MEM_DISCARDABLE
       else
         sectionData.characteristics := sectionData.characteristics or section.Characteristics;
+
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
       sectionData.size := PByte(sectionAddress) + sectionSize - PByte(sectionData.address);
+      {$ELSE}
+      sectionData.size := PAnsiChar(sectionAddress) + sectionSize - PAnsiChar(sectionData.address);
+      {$IFEND}
+
       Inc(section);
       Continue;
-    end;
+      end;
 
     if not FinalizeSection(module, sectionData) then
-      Exit(False);
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+      Exit(false);
+      {$ELSE}
+      begin
+      result := false;
+      Exit;
+      end;
+      {$IFEND}
 
     sectionData.address := sectionAddress;
     sectionData.alignedAddress := alignedAddress;
@@ -386,11 +583,18 @@ begin
     sectionData.characteristics := section.Characteristics;
 
     Inc(section);
-  end; // for
+    end; // for
 
   sectionData.last := True;
   if not FinalizeSection(module, sectionData) then
-    Exit(False);
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+    Exit(false);
+    {$ELSE}
+    begin
+    result := false;
+    Exit;
+    end;
+    {$IFEND}
 
   Result := True;
 end;
@@ -401,19 +605,17 @@ var
   directory: PIMAGE_DATA_DIRECTORY;
   tls: PIMAGE_TLS_DIRECTORY;
   callback: PPointer; // =^PIMAGE_TLS_CALLBACK;
-  cb: Pointer;
 
-// TLS callback pointers are VA's (ImageBase included) so if the module resides at
-// the other ImageBage they become invalid. This routine relocates them to the
-// actual ImageBase.
-// The case seem to happen with DLLs only and they rarely use TLS callbacks.
-// Moreover, they probably don't work at all when using DLL dynamically which is
-// the case in our code.
-function FixPtr(OldPtr: Pointer): Pointer;
-begin
-  Result := Pointer(NativeInt(OldPtr) - module.headers.OptionalHeader.ImageBase + NativeInt(codeBase));
-end;
-
+  // TLS callback pointers are VA's (ImageBase included) so if the module resides at
+  // the other ImageBage they become invalid. This routine relocates them to the
+  // actual ImageBase.
+  // The case seem to happen with DLLs only and they rarely use TLS callbacks.
+  // Moreover, they probably don't work at all when using DLL dynamically which is
+  // the case in our code.
+  function FixPtr(OldPtr: Pointer): Pointer;
+  begin
+    Result := Pointer(NativeInt(OldPtr) - module.headers.OptionalHeader.ImageBase + NativeInt(codeBase));
+  end;
 begin
   Result := True;
   codeBase := module.codeBase;
@@ -422,19 +624,24 @@ begin
   if directory.VirtualAddress = 0 then
     Exit;
 
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
   tls := PIMAGE_TLS_DIRECTORY(PByte(codeBase) + directory.VirtualAddress);
+  {$ELSE}
+  tls := PIMAGE_TLS_DIRECTORY(PAnsiChar(codeBase) + directory.VirtualAddress);
+  {$IFEND}
+
   // Delphi syntax is quite awkward when dealing with proc pointers so we have to
   // use casts to untyped pointers
   callback := Pointer(tls.AddressOfCallBacks);
   if callback <> nil then
-  begin
+    begin
     callback := FixPtr(callback);
     while callback^ <> nil do
-    begin
+      begin
       PIMAGE_TLS_CALLBACK(FixPtr(callback^))(codeBase, DLL_PROCESS_ATTACH, nil);
       Inc(callback);
+      end;
     end;
-  end;
 end;
 
 function PerformBaseRelocation(module: PMemoryModule; delta: NativeInt): Boolean;
@@ -454,15 +661,33 @@ begin
   codebase := module.codeBase;
   directory := GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_BASERELOC);
   if directory.Size = 0 then
-    Exit(delta = 0);
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+    Exit( delta = 0 );
+    {$ELSE}
+    begin
+    result := delta = 0;
+    Exit;
+    end;
+    {$IFEND}
 
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
   relocation := PIMAGE_BASE_RELOCATION(PByte(codebase) + directory.VirtualAddress);
+  {$ELSE}
+  relocation := PIMAGE_BASE_RELOCATION(PAnsiChar(codebase) + directory.VirtualAddress);
+  {$IFEND}
+
   while relocation.VirtualAddress > 0 do
-  begin
+    begin
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     dest := Pointer(PByte(codebase) + relocation.VirtualAddress);
     relInfo := Pointer(PByte(relocation) + IMAGE_SIZEOF_BASE_RELOCATION);
+    {$ELSE}
+    dest := Pointer(PAnsiChar(codebase) + relocation.VirtualAddress);
+    relInfo := Pointer(PAnsiChar(relocation) + IMAGE_SIZEOF_BASE_RELOCATION);
+    {$IFEND}
+
     for i := 0 to Trunc(((relocation.SizeOfBlock - IMAGE_SIZEOF_BASE_RELOCATION) / 2)) - 1 do
-    begin
+      begin
       // the upper 4 bits define the type of relocation
       relType := relInfo^ shr 12;
       // the lower 12 bits define the offset
@@ -473,27 +698,36 @@ begin
           // skip relocation
           ;
         IMAGE_REL_BASED_HIGHLOW:
-          begin
+            begin
             // change complete 32 bit address
+            {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
             patchAddrHL := Pointer(PByte(dest) + offset);
+            {$ELSE}
+            patchAddrHL := Pointer(PAnsiChar(dest) + offset);
+            {$IFEND}
+
             Inc(patchAddrHL^, delta);
-          end;
+            end;
 
         {$IFDEF CPUX64}
         IMAGE_REL_BASED_DIR64:
-          begin
+            begin
             patchAddr64 := Pointer(PByte(dest) + offset);
             Inc(patchAddr64^, delta);
-          end;
+            end;
         {$ENDIF}
       end;
 
       Inc(relInfo);
-    end; // for
+      end; // for
 
     // advance to next relocation block
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     relocation := PIMAGE_BASE_RELOCATION(PByte(relocation) + relocation.SizeOfBlock);
-  end; // while
+    {$ELSE}
+    relocation := PIMAGE_BASE_RELOCATION(PAnsiChar(relocation) + relocation.SizeOfBlock);
+    {$IFEND}
+    end; // while
 
   Result := True;
 end;
@@ -513,18 +747,35 @@ begin
 
   directory := GET_HEADER_DICTIONARY(module, IMAGE_DIRECTORY_ENTRY_IMPORT);
   if directory.Size = 0 then
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     Exit(True);
-
-  importDesc := PIMAGE_IMPORT_DESCRIPTOR(PByte(codebase) + directory.VirtualAddress);
-  while (not IsBadReadPtr(importDesc, SizeOf(IMAGE_IMPORT_DESCRIPTOR))) and (importDesc.Name <> 0) do
-  begin
-    handle := LoadLibraryA_Internal(PAnsiChar(PByte(codebase) + importDesc.Name));
-    if handle = 0 then
+    {$ELSE}
     begin
+    result := True;
+    Exit;
+    end;
+    {$IFEND}
+
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+  importDesc := PIMAGE_IMPORT_DESCRIPTOR(PByte(codebase) + directory.VirtualAddress);
+  {$ELSE}
+  importDesc := PIMAGE_IMPORT_DESCRIPTOR(PAnsiChar(codebase) + directory.VirtualAddress);
+  {$IFEND}
+
+  while (not IsBadReadPtr(importDesc, SizeOf(IMAGE_IMPORT_DESCRIPTOR))) and (importDesc.Name <> 0) do
+    begin
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+    handle := LoadLibraryA_Internal(PAnsiChar(PByte(codebase) + importDesc.Name));
+    {$ELSE}
+    handle := LoadLibraryA_Internal(PAnsiChar(PAnsiChar(codebase) + importDesc.Name));
+    {$IFEND}
+
+    if handle = 0 then
+      begin
       SetLastError(ERROR_MOD_NOT_FOUND);
       Result := False;
       Break;
-    end;
+      end;
 
     try
       SetLength(module.modules, module.numModules + 1);
@@ -538,44 +789,58 @@ begin
     Inc(module.numModules);
 
     if importDesc.OriginalFirstThunk <> 0 then
-    begin
+      begin
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
       thunkRef := Pointer(PByte(codebase) + importDesc.OriginalFirstThunk);
       funcRef := Pointer(PByte(codebase) + importDesc.FirstThunk);
-    end
+      {$ELSE}
+      thunkRef := Pointer(PAnsiChar(codebase) + importDesc.OriginalFirstThunk);
+      funcRef := Pointer(PAnsiChar(codebase) + importDesc.FirstThunk);
+      {$IFEND}
+      end
     else
-    begin
+      begin
       // no hint table
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
       thunkRef := Pointer(PByte(codebase) + importDesc.FirstThunk);
       funcRef := Pointer(PByte(codebase) + importDesc.FirstThunk);
-    end;
+      {$ELSE}
+      thunkRef := Pointer(PAnsiChar(codebase) + importDesc.FirstThunk);
+      funcRef := Pointer(PAnsiChar(codebase) + importDesc.FirstThunk);
+      {$IFEND}
+      end;
 
     while thunkRef^ <> 0 do
-    begin
+      begin
       if IMAGE_SNAP_BY_ORDINAL(thunkRef^) then
         funcRef^ := GetProcAddress_Internal(handle, PAnsiChar(IMAGE_ORDINAL(thunkRef^)))
       else
-      begin
+        begin
+        {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
         thunkData := PIMAGE_IMPORT_BY_NAME(PByte(codebase) + thunkRef^);
+        {$ELSE}
+        thunkData := PIMAGE_IMPORT_BY_NAME(PAnsiChar(codebase) + thunkRef^); // RangeCheck causing Internal-Error C1118
+        {$IFEND}
         funcRef^ := GetProcAddress_Internal(handle, PAnsiChar(@(thunkData.Name)));
-      end;
+        end;
       if funcRef^ = nil then
-      begin
+        begin
         Result := False;
         Break;
-      end;
+        end;
       Inc(funcRef);
       Inc(thunkRef);
-    end; // while
+      end; // while
 
     if not Result then
-    begin
+      begin
       FreeLibrary_Internal(handle);
       SetLastError(ERROR_PROC_NOT_FOUND);
       Break;
-    end;
+      end;
 
     Inc(importDesc);
-  end; // while
+    end; // while
 end;
 
   { +++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -593,40 +858,46 @@ var
   successfull: Boolean;
   module: PMemoryModule;
 begin
-  Result := nil; module := nil;
+  Result := nil;
+  module := nil;
 
   try
     dos_header := PIMAGE_DOS_HEADER(data);
     if (dos_header.e_magic <> IMAGE_DOS_SIGNATURE) then
-    begin
+      begin
       SetLastError(ERROR_BAD_EXE_FORMAT);
       Exit;
-    end;
+      end;
 
     // old_header = (PIMAGE_NT_HEADERS)&((const unsigned char * )(data))[dos_header->e_lfanew];
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     old_header := PIMAGE_NT_HEADERS(PByte(data) + dos_header._lfanew);
+    {$ELSE}
+    old_header := PIMAGE_NT_HEADERS(PAnsiChar(data) + dos_header._lfanew);
+    {$IFEND}
+
     if old_header.Signature <> IMAGE_NT_SIGNATURE then
-    begin
+      begin
       SetLastError(ERROR_BAD_EXE_FORMAT);
       Exit;
-    end;
+      end;
 
     {$IFDEF CPUX64}
     if old_header.FileHeader.Machine <> IMAGE_FILE_MACHINE_AMD64 then
     {$ELSE}
     if old_header.FileHeader.Machine <> IMAGE_FILE_MACHINE_I386 then
     {$ENDIF}
-    begin
+      begin
       SetLastError(ERROR_BAD_EXE_FORMAT);
       Exit;
-    end;
+      end;
 
     if (old_header.OptionalHeader.SectionAlignment and 1) <> 0 then
-    begin
+      begin
       // Only support section alignments that are a multiple of 2
       SetLastError(ERROR_BAD_EXE_FORMAT);
       Exit;
-    end;
+      end;
 
     // reserve memory for image of library
     // XXX: is it correct to commit the complete memory region at once?
@@ -636,30 +907,35 @@ begin
                          MEM_RESERVE or MEM_COMMIT,
                          PAGE_READWRITE);
     if code = nil then
-    begin
+      begin
       // try to allocate memory at arbitrary position
       code := VirtualAlloc(nil,
                            old_header.OptionalHeader.SizeOfImage,
                            MEM_RESERVE or MEM_COMMIT,
                            PAGE_READWRITE);
       if code = nil then
-      begin
+        begin
         SetLastError(ERROR_OUTOFMEMORY);
         Exit;
+        end;
       end;
-    end;
 
     module := PMemoryModule(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, SizeOf(TMemoryModuleRec)));
     if module = nil then
-    begin
+      begin
       VirtualFree(code, 0, MEM_RELEASE);
       SetLastError(ERROR_OUTOFMEMORY);
       Exit;
-    end;
+      end;
 
     // memory is zeroed by HeapAlloc
     module.codeBase := code;
+
+    {$IF CompilerVersion >= 23}
     GetNativeSystemInfo({$IFDEF FPC}@{$ENDIF}sysInfo);
+    {$ELSE}
+    GetNativeSystemInfo(@sysInfo);
+    {$IFEND}
     module.pageSize := sysInfo.dwPageSize;
 
     // commit memory for headers
@@ -671,7 +947,11 @@ begin
     // copy PE header to code
     CopyMemory(headers, dos_header, old_header.OptionalHeader.SizeOfHeaders);
     // result->headers = (PIMAGE_NT_HEADERS)&((const unsigned char *)(headers))[dos_header->e_lfanew];
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     module.headers := PIMAGE_NT_HEADERS(PByte(headers) + dos_header._lfanew);
+    {$ELSE}
+    module.headers := PIMAGE_NT_HEADERS(PAnsiChar(headers) + dos_header._lfanew);
+    {$IFEND}
 
     // copy sections from DLL file block to new memory location
     if not CopySections(data, old_header, module) then
@@ -699,17 +979,22 @@ begin
 
     // get entry point of loaded library
     if module.headers.OptionalHeader.AddressOfEntryPoint <> 0 then
-    begin
+      begin
+      {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
       @DllEntry := Pointer(PByte(code) + module.headers.OptionalHeader.AddressOfEntryPoint);
+      {$ELSE}
+      @DllEntry := Pointer(PAnsiChar(code) + module.headers.OptionalHeader.AddressOfEntryPoint);
+      {$IFEND}
+
       // notify library about attaching to process
       successfull := DllEntry(HINST(code), DLL_PROCESS_ATTACH, nil);
       if not successfull then
-      begin
+        begin
         SetLastError(ERROR_DLL_INIT_FAILED);
         Abort;
-      end;
+        end;
       module.initialized := True;
-    end;
+      end;
 
     Result := module;
   except
@@ -743,7 +1028,12 @@ begin
     Exit;
   end;
 
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
   exportDir := PIMAGE_EXPORT_DIRECTORY(PByte(codebase) + directory.VirtualAddress);
+  {$ELSE}
+  exportDir := PIMAGE_EXPORT_DIRECTORY(PAnsiChar(codebase) + directory.VirtualAddress);
+  {$IFEND}
+
   // DLL doesn't export anything
   if (exportDir.NumberOfNames = 0) or (exportDir.NumberOfFunctions = 0) then
   begin
@@ -752,37 +1042,51 @@ begin
   end;
 
   // search function name in list of exported names
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
   nameRef := Pointer(PByte(codebase) + exportDir.AddressOfNames);
   ordinal := Pointer(PByte(codebase) + exportDir.AddressOfNameOrdinals);
+  {$ELSE}
+  nameRef := Pointer(PAnsiChar(codebase) + Cardinal(exportDir.AddressOfNames));
+  ordinal := Pointer(PAnsiChar(codebase) + Cardinal(exportDir.AddressOfNameOrdinals));
+  {$IFEND}
   idx := -1;
   for i := 0 to exportDir.NumberOfNames - 1 do
-  begin
-    if StrComp(name, PAnsiChar(PByte(codebase) + nameRef^)) = 0 then
     begin
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
+    if StrComp(name, PAnsiChar(PByte(codebase) + nameRef^)) = 0 then
+    {$ELSE}
+    if StrComp(name, PAnsiChar(PAnsiChar(codebase) + nameRef^)) = 0 then
+    {$IFEND}
+      begin
       idx := ordinal^;
       Break;
-    end;
+      end;
     Inc(nameRef);
     Inc(ordinal);
-  end;
+    end;
 
   // exported symbol not found
   if (idx = -1) then
-  begin
+    begin
     SetLastError(ERROR_PROC_NOT_FOUND);
     Exit;
-  end;
+    end;
 
   // name <-> ordinal number don't match
   if (DWORD(idx) > exportDir.NumberOfFunctions) then
-  begin
+    begin
     SetLastError(ERROR_PROC_NOT_FOUND);
     Exit;
-  end;
+    end;
 
   // AddressOfFunctions contains the RVAs to the "real" functions     {}
+  {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
   temp := Pointer(PByte(codebase) + exportDir.AddressOfFunctions + idx*4);
   Result := Pointer(PByte(codebase) + temp^);
+  {$ELSE}
+  temp := Pointer(PAnsiChar(codebase) + Cardinal( exportDir.AddressOfFunctions ) + Cardinal( idx )*4);
+  Result := Pointer(PAnsiChar(codebase) + temp^);
+  {$IFEND}
 end;
 
 procedure MemoryFreeLibrary(module: TMemoryModule); stdcall;
@@ -796,21 +1100,25 @@ begin
   mmodule := PMemoryModule(module);
 
   if mmodule.initialized then
-  begin
+    begin
     // notify library about detaching from process
+    {$IF Defined( FPC ) OR ( CompilerVersion >= 20 )}
     @DllEntry := Pointer(PByte(mmodule.codeBase) + mmodule.headers.OptionalHeader.AddressOfEntryPoint);
+    {$ELSE}
+    @DllEntry := Pointer(PAnsiChar(mmodule.codeBase) + mmodule.headers.OptionalHeader.AddressOfEntryPoint);
+    {$IFEND}
     DllEntry(HINST(mmodule.codeBase), DLL_PROCESS_DETACH, nil);
-  end;
+    end;
 
   if Length(mmodule.modules) <> 0 then
-  begin
+    begin
     // free previously opened libraries
     for i := 0 to mmodule.numModules - 1 do
       if mmodule.modules[i] <> 0 then
         FreeLibrary_Internal(mmodule.modules[i]);
 
     SetLength(mmodule.modules, 0);
-  end;
+    end;
 
   if mmodule.codeBase <> nil then
     // release memory of library
@@ -819,4 +1127,4 @@ begin
   HeapFree(GetProcessHeap(), 0, mmodule);
 end;
 
-end.
+end. 
