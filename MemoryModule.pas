@@ -2279,22 +2279,22 @@ end;
 
 function MemoryLoadLibraryFile( FileName : string; var Module : PMemoryModule; Flags : Cardinal = 0 ): ShortInt; stdcall;
 var
-  Data    : Pointer;
-  Cnt     : Cardinal;
-  SPPath  : array of char;
-  PathStr : PChar;
+  Data      : Pointer;
+  Cnt       : Cardinal;
+  SPPath    : String;
+  pFileName : PChar;
 begin
   result := -32;
   Module := nil;
   if NOT FileExists( FileName ) then
     begin
     // EnvironmentPath
-    Cnt := SearchPath( nil, PChar( Filename ), nil, 0, nil, PathStr );
+    Cnt := SearchPath( nil{lpPath}, PChar( Filename ){lpFileName}, nil{lpExtension}, 0{nBufferLength}, nil{lpBuffer}, pFileName{lpFilePart} );
     if ( Cnt = 0 ) then
       Exit;
-    SetLength( SPPath, Cnt );
-    if ( SearchPath( nil, PChar( Filename ), nil, 255, @SPPath[ 0 ], PathStr ) > 0 ) then
-      FileName := string( SPPath );
+    SetLength( SPPath, Cnt-1 );
+    if ( SearchPath( nil{lpPath}, PChar( Filename ){lpFileName}, nil{lpExtension}, Cnt, PChar( SPPath ){lpBuffer}, pFileName{lpFilePart} ) > 0 ) then
+      FileName := SPPath;
     SetLength( SPPath, 0 );
 
     if NOT FileExists( FileName ) then
