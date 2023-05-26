@@ -236,12 +236,12 @@ function MemoryEnumerateExportsFile( FileName : String; var AExports : String; D
 function MemoryEnumerateExports( ResourceName : string; var AExports : String; DelimiterString : String = ';'{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : ShortInt; overload;
 {$ENDIF}
 
-function ListMissingModules( ModuleData : Pointer; FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255 ) : Int64; overload;
+function ListMissingModules( ModuleData : Pointer; FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255 ) : Int64; overload;
 {$IFDEF ALLOW_LOAD_FILES}
-function ListMissingModules( FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64; overload;
+function ListMissingModules( FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64; overload;
 {$ENDIF}
 {$IFDEF LOAD_FROM_RESOURCE}
-function ListMissingModules( ResourceName : string; FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64; overload;
+function ListMissingModules( ResourceName : string; FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64; overload;
 {$ENDIF}
 
 implementation
@@ -609,9 +609,9 @@ function ExceptionErrorMessage(ExceptObject: TObject; ExceptAddr: Pointer; Buffe
   end;
 
   function PointerToHex( P : Pointer; TypeSize : Byte; BigEndian : boolean = false ): string;
-    function ByteToHex( B : Byte ) : ShortString;
+    function ByteToHex( B : Byte ) : String;
     const
-      HexTable : Array[ 0..15 ] of AnsiChar = ( '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' );
+      HexTable : Array[ 0..15 ] of Char = ( '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' );
     begin
       result := HexTable[ b div 16 ] + HexTable[ b mod 16 ];
     end;
@@ -3137,7 +3137,7 @@ begin
   importDesc := PIMAGE_IMPORT_DESCRIPTOR( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + directory.VirtualAddress );
   while ( not IsBadReadPtr( importDesc, SizeOf( IMAGE_IMPORT_DESCRIPTOR ) ) ) and ( importDesc.Name <> 0 ) do
     begin
-    FileName := PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + importDesc.Name );
+    FileName := String( PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + importDesc.Name ) );
     if FullPath then
       begin
       // EnvironmentPath
@@ -3249,7 +3249,7 @@ var
       if NOT FileExists( FileName ) then
 //      if ( FileName = '' ) then
         Exit;
-      if ( MemoryEnumerateImportsFile( FileName, s, DelimiterString, True ) <> 0 ) then
+      if ( MemoryEnumerateImportsFile( FileName, s, DelimiterString, True ) = 0 ) then
         Exit;
       end
     else if ( MemoryEnumerateImports( ModuleData, s, DelimiterString, True ) <> 0 ) then
@@ -3374,7 +3374,7 @@ begin
 end;
 {$ENDIF}
 
-function ListMissingModules( ModuleData : Pointer; FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255 ) : Int64;
+function ListMissingModules( ModuleData : Pointer; FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255 ) : Int64;
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const
   PREFIX_ : Array [ 0..1 ] of String = ( 'api-ms-win-', 'ext-ms-' );
@@ -3438,10 +3438,10 @@ var
       if NOT FileExists( FileName ) then
 //      if ( FileName = '' ) then
         Exit;
-      if ( MemoryEnumerateImportsFile( FileName, s, DelimiterString, True ) <> 0 ) then
+      if ( MemoryEnumerateImportsFile( FileName, s, DelimiterString, True ) = 0 ) then
         Exit;
       end
-    else if ( MemoryEnumerateImports( ModuleData, s, DelimiterString, True ) <> 0 ) then
+    else if ( MemoryEnumerateImports( ModuleData, s, DelimiterString, True ) = 0 ) then
       Exit;
 
     if ( Level > 0 ) then
@@ -3513,7 +3513,7 @@ begin
 end;
 
 {$IFDEF ALLOW_LOAD_FILES}
-function ListMissingModules( FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64;
+function ListMissingModules( FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64;
 var
   Data : Pointer;
 begin
@@ -3530,7 +3530,7 @@ end;
 {$ENDIF}
 
 {$IFDEF LOAD_FROM_RESOURCE}
-function ListMissingModules( ResourceName : string; FileName : String; var Modules : String; DelimiterString : String = #1310; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64;
+function ListMissingModules( ResourceName : string; FileName : String; var Modules : String; DelimiterString : String = #13#10; FullPath : Boolean = False; const MaxRecurseDepth : Word = 255{$IFDEF USE_STREAMS}; Password : string = ''{$ENDIF} ) : Int64;
 const
   RES_TYPE_ = 'DLL'; // RT_RCDATA{10};
 var
@@ -3611,9 +3611,9 @@ begin
 //    VA  := Pointer( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + RVA );
 
     if ( AExports = '' ) then
-      AExports := PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + nameRef^ )
+      AExports := string( PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + nameRef^ ) )
     else
-      AExports := AExports + DelimiterString + PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + nameRef^ );
+      AExports := AExports + DelimiterString + string( PAnsiChar( {$IF Defined( FPC ) OR ( CompilerVersion >= 21 )}PByte{$ELSE}PAnsiChar{$IFEND}( codebase ) + nameRef^ ) );
 
     Inc( nameRef );
     Inc( ordinal );
