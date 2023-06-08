@@ -1059,9 +1059,9 @@ var
   function FixPtr( OldPtr: Pointer ): Pointer;
   begin
     if module.headers.X64 then
-      Result := Pointer( NativeInt( OldPtr ) - module.headers.headers64.OptionalHeader.ImageBase + NativeInt( codeBase ) )
+      Result := Pointer( NativeInt( OldPtr ) - Int64( module.headers.headers64.OptionalHeader.ImageBase + NativeUInt( codeBase ) ) )
     else
-      Result := Pointer( NativeInt( OldPtr ) - module.headers.headers32.OptionalHeader.ImageBase + NativeInt( codeBase ) );
+      Result := Pointer( NativeInt( OldPtr ) - Integer( module.headers.headers32.OptionalHeader.ImageBase + NativeUInt( codeBase ) ) );
   end;
 var
   directory: PIMAGE_DATA_DIRECTORY;
@@ -1187,7 +1187,8 @@ begin
             {$ELSE}
             patchAddr64 := Pointer( PAnsiChar( dest ) + offset );
             {$IFEND}
-            Inc( patchAddr64^, delta );
+//            Inc( patchAddr64^, delta );
+            patchAddr64^ := Int64( patchAddr64^ )+delta;
             end;
           end;
 //        {$ENDIF}
@@ -3062,7 +3063,7 @@ begin
   if ( CheckSum <> nil ) then
     CheckSum^ := 0;
 
-  result := PIMAGE_NT_HEADERS32( NativeUInt( Module^.codeBase ) + PImageDosHeader( Module^.codeBase )._lfanew );
+  result := PIMAGE_NT_HEADERS32( NativeInt( Module^.codeBase ) + PImageDosHeader( Module^.codeBase )._lfanew );
   if ( result.Signature <> IMAGE_NT_SIGNATURE ) then
     begin
     result := nil;
